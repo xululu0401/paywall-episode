@@ -1,0 +1,618 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>从哪集开始收费</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif; background: #f3efe8; color: #2a2320; line-height: 1.6; }
+  .wrap { max-width: 1060px; margin: 0 auto; padding: 20px 14px 40px; }
+  h1 { font-size: 26px; letter-spacing: 1px; }
+  .lead { color: #6a5d55; font-size: 14px; margin: 4px 0 14px; }
+  .card { background: #fffdf9; border-radius: 10px; padding: 14px; border: 1px solid #e2d8cc; margin-bottom: 14px; min-width: 0; }
+  .card h2 { font-size: 15px; font-weight: 600; margin-bottom: 8px; overflow-wrap: anywhere; }
+  label { font-size: 12px; color: #6a5d55; display: block; overflow-wrap: anywhere; }
+  input { font: inherit; font-size: 14px; padding: 6px 8px; border: 1px solid #cdbfae; border-radius: 6px; width: 100%; min-width: 0; background: #fff; font-variant-numeric: tabular-nums; }
+  .g { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px 10px; }
+  .g > div { min-width: 0; }
+  .g .wide { grid-column: span 2; }
+  .grp { font-size: 13px; font-weight: 600; color: #8a3b2a; margin: 12px 0 4px; }
+  .bad { border-color: #b3412f !important; background: #fff0ec !important; }
+  button { font: inherit; font-size: 13px; padding: 6px 11px; border-radius: 6px; border: 1px solid #8a3b2a; background: #8a3b2a; color: #fff; cursor: pointer; }
+  button.ghost { background: #fff; color: #8a3b2a; }
+  .presets, .dl { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 12px; }
+  .err { display: none; background: #fff0ec; border: 1px solid #ecb7aa; color: #8e2b1c; border-radius: 8px; padding: 10px 12px; margin-bottom: 14px; overflow-wrap: anywhere; }
+  .muted { color: #8a7d73; font-size: 12px; }
+  .verdict { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; margin-bottom: 6px; }
+  .stamp { display: inline-block; border: 3px solid #8a3b2a; color: #8a3b2a; border-radius: 8px; padding: 2px 10px; font-weight: 800; font-size: 18px; transform: rotate(-3deg); white-space: nowrap; }
+  .stamp.same, .stamp.near { border-color: #2f7a4f; color: #2f7a4f; } .stamp.zero { border-color: #8a7d73; color: #8a7d73; }
+  #big { font-size: 15px; color: #6a5d55; overflow-wrap: anywhere; }
+  #big b { font-size: 24px; color: #2a2320; font-variant-numeric: tabular-nums; }
+  #sumTxt { font-size: 16px; font-weight: 700; overflow-wrap: anywhere; }
+  #facts { margin: 10px 0 0 18px; font-size: 13px; color: #6a5d55; } #facts li { margin: 2px 0; overflow-wrap: anywhere; }
+  .legend { display: flex; gap: 12px; flex-wrap: wrap; font-size: 12px; color: #6a5d55; margin-bottom: 6px; }
+  .legend i { display: inline-block; width: 12px; height: 12px; vertical-align: -1px; margin-right: 4px; }
+  .chartbox { position: relative; width: 100%; }
+  #chart { display: block; width: 100%; height: 320px; cursor: pointer; }
+  #tip { position: absolute; pointer-events: none; background: #2a2320; color: #fff; font-size: 12px; padding: 4px 8px; border-radius: 4px; display: none; white-space: nowrap; font-variant-numeric: tabular-nums; }
+  #pickCard { margin-top: 8px; font-size: 13px; background: #f7f0e6; border-radius: 6px; padding: 8px 10px; overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
+  .tbl { width: 100%; border-collapse: collapse; font-size: 13px; font-variant-numeric: tabular-nums; }
+  .tbl th, .tbl td { padding: 5px 6px; border-bottom: 1px solid #efe6db; text-align: right; white-space: nowrap; }
+  .tbl th { color: #6a5d55; font-weight: 600; font-size: 12px; position: sticky; top: 0; background: #fffdf9; }
+  .tbl tr.best td { background: #e6f2ea; font-weight: 700; } .tbl tr.cur td { background: #fdf1d8; } .tbl tr.best.cur td { background: #dcefe2; }
+  .tbl tr.pk td { outline: 2px solid #2a2320; outline-offset: -2px; }
+  .tbl td.bar { width: 30%; text-align: left; } .tbl td.bar i { display: inline-block; height: 9px; background: #c9875a; border-radius: 2px; vertical-align: 0; }
+  .tw { overflow: auto; max-height: 440px; }
+  #sugs { display: grid; gap: 8px; }
+  .sug { display: flex; gap: 10px; align-items: center; justify-content: space-between; border: 1px solid #e2d8cc; border-radius: 6px; padding: 8px 10px; }
+  .sug span { min-width: 0; overflow-wrap: anywhere; font-size: 14px; } .sug button { flex: none; }
+  .how { font-size: 13px; } .how p { margin: 6px 0; }
+  @media (max-width: 760px) { .g { grid-template-columns: repeat(2, minmax(0, 1fr)); } #chart { height: 260px; } }
+  @media (max-width: 520px) { .sug { flex-direction: column; align-items: stretch; } #sumTxt { font-size: 15px; } .tbl th, .tbl td { padding: 4px 3px; font-size: 12px; } .hide-s { display: none; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>从哪集开始收费</h1>
+  <p class="lead">一部连载（短剧、网文、系列课）前几集免费，从某一集起要付费解锁。收得早，碰到收费的人多，可他们还没看上瘾；收得晚，愿意付的人多了，人却已经走了一大半。填上你估的流失和付费意愿，这里把每一集当收费起点都算一遍，看哪一集收入最高、你打算的那集差多少。默认数据是虚构的。</p>
+
+  <div class="card">
+    <div class="g">
+      <div class="wide"><label for="name">这部叫什么（可不填）</label><input id="name" maxlength="30"></div>
+      <div><label for="episodes">总集数</label><input id="episodes" inputmode="numeric" maxlength="3"></div>
+      <div><label for="current">打算从第几集收（0 = 全免费）</label><input id="current" inputmode="numeric" maxlength="3"></div>
+    </div>
+    <div class="grp">人怎么走</div>
+    <div class="g">
+      <div><label for="viewers">第 1 集观看人数</label><input id="viewers" inputmode="numeric" maxlength="9"></div>
+      <div><label for="earlyN">前几集算开头</label><input id="earlyN" inputmode="numeric" maxlength="3"></div>
+      <div><label for="earlyDrop">开头每集流失（%）</label><input id="earlyDrop" inputmode="decimal" maxlength="4"></div>
+      <div><label for="lateDrop">之后每集流失（%）</label><input id="lateDrop" inputmode="decimal" maxlength="4"></div>
+    </div>
+    <div class="grp">钱怎么来</div>
+    <div class="g">
+      <div><label for="cpm">免费集每千次观看广告（元）</label><input id="cpm" inputmode="decimal" maxlength="7"></div>
+      <div><label for="price">解锁后面全部的价格（元）</label><input id="price" inputmode="decimal" maxlength="8"></div>
+      <div><label for="conv0">第 1 集就收时的付费率（%）</label><input id="conv0" inputmode="decimal" maxlength="6"></div>
+      <div><label for="convStep">每多看一集付费率涨（百分点）</label><input id="convStep" inputmode="decimal" maxlength="6"></div>
+      <div><label for="convCap">付费率最多到（%）</label><input id="convCap" inputmode="decimal" maxlength="6"></div>
+    </div>
+    <div class="presets" id="presets"><button id="reset" class="ghost">恢复默认</button></div>
+  </div>
+
+  <div class="err" id="error"></div>
+
+  <div id="out">
+    <div class="card">
+      <div class="verdict"><span class="stamp" id="stamp"></span><span id="big"></span></div>
+      <div id="sumTxt"></div>
+      <ul id="facts"></ul>
+    </div>
+
+    <div class="card" id="sugCard">
+      <h2>改一样试试（点一下代回重算）</h2>
+      <div id="sugs"></div>
+    </div>
+
+    <div class="card">
+      <h2>每一集当收费起点，各收多少</h2>
+      <div class="legend"><span><i style="background:#e7c39a"></i>前面免费集的广告</span><span><i style="background:#8a3b2a"></i>付费解锁</span><span><i style="background:#2a2320;height:3px;vertical-align:3px"></i>还在看的人（右轴）</span><span><i style="background:#2f7a4f"></i>收入最高</span><span><i style="background:#d9a227"></i>你打算的那集（三角）</span></div>
+      <div class="chartbox"><canvas id="chart"></canvas><div id="tip"></div></div>
+      <div id="pickCard"></div>
+      <p class="muted" style="margin-top:6px">每根柱子是「从这一集开始收费」时的总收入。点柱子看那一集的明细。黑线是全部免费时每集还有多少人在看。</p>
+    </div>
+
+    <div class="card">
+      <h2>对照表</h2>
+      <div class="tw"><table class="tbl" id="tbl"></table></div>
+      <p class="muted" style="margin-top:6px">绿底是收入最高，黄底是你打算的那集。人数按期望值算，表里四舍五入成整数。</p>
+    </div>
+
+    <div class="card">
+      <h2>带走</h2>
+      <div class="dl">
+        <button id="dlPNG">结果卡 PNG</button><button id="dlCSV" class="ghost">CSV</button><button id="dlMD" class="ghost">Markdown</button><button id="dlJSON" class="ghost">JSON 备份</button>
+      </div>
+      <p class="muted" style="margin-top:6px">填的数字自动存在这台设备的浏览器里，不上传。</p>
+    </div>
+  </div>
+
+  <div class="card how">
+    <h2>怎么算的</h2>
+    <p>人数：第 1 集有多少人看，开头几集每集走掉一个比例，之后每集走掉另一个比例（短剧、网文开头掉得最快）。</p>
+    <p>从第 k 集开始收费：前面 k − 1 集免费，按观看次数挣广告；走到第 k 集的人里，有一部分付钱解锁后面全部，其余的就此离开。付费率 = 第 1 集就收时的付费率 + 每多看一集涨的百分点 ×（k − 1），到上限为止。收入 = 前面广告 + 走到第 k 集的人 × 付费率 × 价格。每一集都这样算一遍，取最高的；收入一样时取更早的一集。</p>
+    <p>付费的人后面的集数不再算广告；全部免费就是只有广告。「差不了多少」是你打算的那集比最高的少不到 3%。</p>
+    <p>边界：流失率和付费率都是你自己的估计，这里没有任何平台的真实数据或分成规则；没算单集付费、会员、看广告解锁、分享拉新，也没算付费后又退款的人。它回答的是「在你这套估计下，收费点放哪最划算」，估计变了，答案也会变，所以页面里给了付费率估高、估低时的结果。</p>
+  </div>
+</div>
+
+  <script>
+/* 从哪集开始收费 · 计算核心
+ * 场景：一部连载内容（短剧、网文、系列课），前几集免费，从某一集起要付费解锁。
+ *       收得早，看到收费集的人多，但他们还没看上瘾；收得晚，愿意付的人比例高，可人已经走了一大半，
+ *       中间免费的几集还能挣点广告钱。到底从哪集开始收？
+ * 模型（期望值、确定性；参数都是使用者自己的估计，是设计选择，不是平台规则，也不是真实观众分布）：
+ *   · 第 1 集有 V 人看。前 m 集每集看完后有 a 比例的人不看了，之后每集 b 比例：
+ *       views(1) = V，views(i+1) = views(i)·(1 − d_i)，d_i = a（i ≤ m）否则 b。
+ *   · 免费集每次观看挣广告钱：每千次观看 e 元 → 每次 e/1000 元。
+ *   · 从第 k 集收费：走到第 k 集的人碰到收费，其中 conv(k) 比例的人付 P 元解锁后面全部；
+ *       conv(k) = min(上限, 起始转化率 + 每多看一集增加的百分点 ×（k − 1））。
+ *     付费的人后面的集数不再算广告钱；没付的人就此离开。
+ *   · 收入(k) = e/1000 · Σ_{i<k} views(i) + views(k)·conv(k)·P；k = N+1 表示全部免费（只有广告）。
+ *   · 最好的一集 = 收入最高的 k；并列时取更早的一集。
+ *   · 收入(k) 对价格 P 是一次函数，所以「第 k0 集成为最好」的价格是一个区间，可以精确求出。 */
+(function (root) {
+  'use strict';
+  function Bad(message, field) { const e = new Error(message); e.field = field; return e; }
+  const KEYS = ['name', 'episodes', 'viewers', 'earlyN', 'earlyDrop', 'lateDrop', 'cpm', 'price', 'conv0', 'convStep', 'convCap', 'current'];
+  const MAX_NAME = 30;
+  const NEAR = 0.03; /* 比最好少不到 3% 算「差不了多少」 */
+
+  function numv(v, label, field, lo, hi, dec) {
+    const t = String(v == null ? '' : v).trim().replace(/,/g, '');
+    if (t === '') throw Bad(label + '没填', field);
+    if (dec === 0 ? !/^\d+$/.test(t) : !/^\d+(\.\d+)?$/.test(t)) throw Bad(label + (dec === 0 ? '要写整数' : '要写数字（不带单位）'), field);
+    if (dec > 0 && t.split('.')[1] && t.split('.')[1].length > dec) throw Bad(label + '最多 ' + dec + ' 位小数', field);
+    const x = +t;
+    if (!(x >= lo && x <= hi)) throw Bad(label + '在 ' + lo + ' 到 ' + hi + ' 之间', field);
+    return x;
+  }
+  function parse(inp) {
+    const o = inp || {};
+    const name = String(o.name == null ? '' : o.name).trim();
+    if (name.length > MAX_NAME) throw Bad('名字最多 ' + MAX_NAME + ' 个字', 'name');
+    const N = numv(o.episodes, '总集数', 'episodes', 2, 300, 0);
+    const D = {
+      name, N,
+      V: numv(o.viewers, '第 1 集观看人数', 'viewers', 1, 100000000, 0),
+      m: numv(o.earlyN, '前几集算开头', 'earlyN', 0, N, 0),
+      aPct: numv(o.earlyDrop, '开头每集流失', 'earlyDrop', 0, 99.9, 1),
+      bPct: numv(o.lateDrop, '之后每集流失', 'lateDrop', 0, 99.9, 1),
+      cpm: numv(o.cpm, '每千次观看广告收入', 'cpm', 0, 1000, 2),
+      P: numv(o.price, '解锁价格', 'price', 0.01, 10000, 2),
+      c0Pct: numv(o.conv0, '起始付费率', 'conv0', 0, 100, 2),
+      gPct: numv(o.convStep, '每多看一集付费率增加', 'convStep', 0, 100, 2),
+      capPct: numv(o.convCap, '付费率上限', 'convCap', 0, 100, 2),
+      k0: numv(o.current, '现在打算从第几集收费', 'current', 0, N, 0),
+    };
+    if (D.capPct < D.c0Pct) throw Bad('付费率上限不能低于起始付费率', 'convCap');
+    D.a = D.aPct / 100; D.b = D.bPct / 100; D.c0 = D.c0Pct / 100; D.g = D.gPct / 100; D.cap = D.capPct / 100;
+    D.e = D.cpm / 1000;
+    D.cur = D.k0 === 0 ? N + 1 : D.k0; /* 内部：N+1 = 全部免费 */
+    return D;
+  }
+  function convAt(D, k) { return Math.min(D.cap, D.c0 + D.g * (k - 1)); }
+  function viewsOf(D) {
+    const v = [0, D.V];
+    for (let i = 1; i < D.N; i++) v.push(v[i] * (1 - (i <= D.m ? D.a : D.b)));
+    return v; /* v[i] = 第 i 集观看人数，i = 1..N */
+  }
+  /* 每个收费位置 k = 1..N+1 的「广告部分 A」「付费部分系数 B（每 1 元价格）」，收入 = A + B·P */
+  function lines(D, views) {
+    const v = views || viewsOf(D), out = [null];
+    let ad = 0;
+    for (let k = 1; k <= D.N + 1; k++) {
+      const reach = k <= D.N ? v[k] : 0, conv = k <= D.N ? convAt(D, k) : 0;
+      out.push({ k, A: ad, B: reach * conv, reach, conv, payers: reach * conv });
+      if (k <= D.N) ad += D.e * v[k];
+    }
+    return out;
+  }
+  const tol = (x) => 1e-9 * Math.max(1, Math.abs(x));
+  /* 最好 = 收入最高；与最高差在 1e-9（相对）以内算并列，取最早的一集 */
+  function bestOf(L, P) {
+    let mx = -Infinity;
+    for (let k = 1; k < L.length; k++) mx = Math.max(mx, L[k].A + L[k].B * P);
+    for (let k = 1; k < L.length; k++) { const r = L[k].A + L[k].B * P; if (r >= mx - tol(mx)) return { k, rev: r }; }
+    return { k: 1, rev: mx };
+  }
+  const r0 = (x) => { const v = Math.round(x); return v === 0 ? 0 : v; };
+  function fmt(x) { const v = r0(x); const s = String(Math.abs(v)).replace(/\B(?=(\d{3})+(?!\d))/g, ','); return (v < 0 ? '−' : '') + s; }
+  function people(x) { return x > 0 && x < 0.5 ? '不到 1' : fmt(x); }
+  function pct(x, d) { const p = Math.pow(10, d == null ? 1 : d), v = Math.round(x * 100 * p) / p; return Math.abs(v) >= 1000 ? fmt(v) : String(v); }
+  function epName(D, k) { return k > D.N ? '全部免费' : '第 ' + k + ' 集'; }
+  function money(x) { return Math.abs(x) < 100 && Math.round(x * 100) % 100 !== 0 ? (Math.round(x * 100) / 100).toFixed(2) : fmt(x); }
+
+  /* 收入 ≥ 最好 ×(1−NEAR) 的位置：最早、最晚，以及中间是否有断开 */
+  function near(rows, best) {
+    const th = best.rev * (1 - NEAR) - tol(best.rev);
+    const ks = rows.filter((r) => r.rev >= th).map((r) => r.k);
+    return { lo: ks[0], hi: ks[ks.length - 1], gaps: ks.length !== ks[ks.length - 1] - ks[0] + 1, ks };
+  }
+  const STAMP = { same: '就是这一集', near: '差不了多少', earlier: '可以早点收', later: '可以晚点收', free: '全免费更划算', zero: '怎么收都是 0' };
+
+  function calculate(inp) {
+    const D = parse(inp);
+    const views = viewsOf(D), L = lines(D, views);
+    const rows = [];
+    const B = bestOf(L, D.P);
+    for (let k = 1; k <= D.N + 1; k++) {
+      const l = L[k], pay = l.B * D.P, rev = l.A + pay;
+      rows.push({ k, reach: l.reach, conv: l.conv, payers: l.payers, ad: l.A, pay, rev, gap: B.rev > 0 ? (B.rev - rev) / B.rev : 0 });
+    }
+    const best = rows[B.k - 1], cur = rows[D.cur - 1], free = rows[D.N];
+    let v;
+    if (best.rev <= 0) v = 'zero';
+    else if (best.k === cur.k) v = 'same';
+    else if (cur.gap < NEAR) v = 'near';
+    else if (best.k > D.N) v = 'free';
+    else v = best.k < cur.k ? 'earlier' : 'later';
+
+    /* 转化率估高/估低时最好的一集 */
+    const scaled = (f) => { const D2 = Object.assign({}, D, { c0: Math.min(1, D.c0 * f), g: D.g * f, cap: Math.min(1, D.cap * f) }); return bestOf(lines(D2, views), D.P).k; };
+    const rob = { half: scaled(0.5), more: scaled(1.5) };
+
+    const nm = D.name ? '「' + D.name + '」' : '';
+    const diff = best.rev - cur.rev;
+    let summary;
+    if (v === 'zero') summary = nm + '广告和付费都是 0，从哪集收费收入都是 0。';
+    else if (v === 'same') summary = nm + '你打算的' + epName(D, cur.k) + '就是收入最高的位置，约 ' + fmt(cur.rev) + ' 元。';
+    else if (v === 'near') summary = nm + '收入最高的是' + epName(D, best.k) + '（' + fmt(best.rev) + ' 元），你打算的' + epName(D, cur.k) + '只少 ' + fmt(diff) + ' 元（' + pct(cur.gap) + '%），差不了多少。';
+    else if (v === 'free') summary = nm + '全部免费只挣广告，约 ' + fmt(best.rev) + ' 元，比你打算的' + epName(D, cur.k) + '收费多 ' + fmt(diff) + ' 元。';
+    else summary = nm + '从' + epName(D, best.k) + '开始收费收入最高，约 ' + fmt(best.rev) + ' 元，比你打算的' + epName(D, cur.k) + (cur.k > D.N ? '' : '收费') + '多 ' + fmt(diff) + ' 元（多 ' + pct(cur.rev > 0 ? diff / cur.rev : 0) + '%）。';
+
+    const facts = [];
+    const last = views[D.N];
+    facts.push('第 1 集 ' + people(D.V) + ' 人看，' + (D.m > 0 ? '前 ' + D.m + ' 集每集走 ' + pct(D.a) + '%，之后每集走 ' + pct(D.b) + '%' : '每集走 ' + pct(D.b) + '%') + '；要是全部免费，看到最后一集（第 ' + D.N + ' 集）的还有 ' + people(last) + ' 人。');
+    if (cur.k <= D.N) facts.push('你打算的第 ' + cur.k + ' 集：走到这集的有 ' + people(cur.reach) + ' 人，按 ' + pct(cur.conv, 2) + '% 付费是 ' + people(cur.payers) + ' 人 × ' + money(D.P) + ' 元 = ' + fmt(cur.pay) + ' 元，前面 ' + (cur.k - 1) + ' 集广告 ' + fmt(cur.ad) + ' 元。');
+    else facts.push('你打算全部免费：' + D.N + ' 集一共 ' + fmt(views.reduce((s, x) => s + x, 0)) + ' 次观看，广告 ' + fmt(free.ad) + ' 元。');
+    if (best.k <= D.N && best.k !== cur.k) facts.push('最好的第 ' + best.k + ' 集：走到这集的有 ' + people(best.reach) + ' 人，付费率 ' + pct(best.conv, 2) + '%，付费 ' + people(best.payers) + ' 人 = ' + fmt(best.pay) + ' 元，前面广告 ' + fmt(best.ad) + ' 元。');
+    if (v !== 'zero') {
+      const nb = [best.k - 1, best.k + 1].filter((k) => k >= 1 && k <= D.N + 1).map((k) => rows[k - 1]);
+      facts.push('往前或往后挪一集：' + nb.map((r) => epName(D, r.k) + ' ' + fmt(r.rev) + ' 元（少 ' + fmt(best.rev - r.rev) + ' 元）').join('，') + '。');
+      const nr = near(rows, best);
+      facts.push(nr.lo === nr.hi ? '只有' + epName(D, nr.lo) + '的收入在最好的 3% 以内，挪一集就差得明显。' : epName(D, nr.lo) + '到' + (nr.hi > D.N ? '全部免费' : '第 ' + nr.hi + ' 集') + '的收入都在最好的 3% 以内' + (nr.gaps ? '（中间有几集掉出去）' : '') + '，这一段里挪来挪去差别不大。');
+      facts.push('付费率要是只有你估的一半，最好是' + epName(D, rob.half) + '；比你估的高一半，最好是' + epName(D, rob.more) + '。');
+    }
+    if (D.cpm === 0) facts.push('广告收入填的是 0，免费集只是用来留人，不挣钱。');
+    return { D, views, rows, best, cur, free, verdict: v, stamp: STAMP[v], summary, facts, rob };
+  }
+
+  /* 让第 k0 集成为最好的价格区间（收入对价格是一次函数，区间精确可求），返回闭区间 [lo, hi]，空则 null */
+  function priceRange(D, k0) {
+    const L = lines(D); const t = L[k0];
+    let lo = 0, hi = Infinity;
+    for (let k = 1; k < L.length; k++) {
+      if (k === k0) continue;
+      const dB = t.B - L[k].B, dA = L[k].A - t.A; /* 需要 t.A + t.B P ≥ L[k].A + L[k].B P ⇔ dB·P ≥ dA */
+      if (dB > 0) lo = Math.max(lo, dA / dB);
+      else if (dB < 0) hi = Math.min(hi, dA / dB);
+      else if (dA > 0) return null;
+    }
+    return lo <= hi ? { lo, hi } : null;
+  }
+  function sameInput(o) { const s = {}; KEYS.forEach((k) => { s[k] = String(o[k] == null ? '' : o[k]); }); return s; }
+  const cents = (s) => Math.round(+s * 100);
+  function isBest(inp, k0) { try { const R = calculate(inp); return R.best.k === k0 && R.best.rev > 0; } catch (e) { return false; } }
+  /* 价格建议：在 0.01–10000 元的分格里，找让「现在打算的那集」成为最好、且离现价最近的价格 */
+  function priceFor(inp, R) {
+    const D = R.D, rg = priceRange(D, D.cur);
+    if (!rg) return null;
+    const base = sameInput(inp), cur = cents(D.P);
+    const lo = Math.max(1, Math.ceil(rg.lo * 100 - 1e-6)), hi = Math.min(1000000, Math.floor(rg.hi * 100 + 1e-6));
+    if (lo > hi) return null;
+    const order = cur < lo ? [lo, lo + 1, lo + 2] : cur > hi ? [hi, hi - 1, hi - 2] : [cur];
+    for (const c of order) {
+      if (c < 1 || c > 1000000) continue;
+      const s = Object.assign({}, base, { price: (c / 100).toFixed(2).replace(/\.?0+$/, '') });
+      if (isBest(s, D.cur)) return { cents: c, value: s.price, apply: s };
+    }
+    return null;
+  }
+  /* 转化率建议：只改「每多看一集增加的百分点」，在 0.01 个百分点的格上扫 0–10，找离现值最近、让现在那集成为最好的值 */
+  function convFor(inp, R) {
+    const D = R.D, base = sameInput(inp), cur = Math.round(D.gPct * 100), views = R.views;
+    let bestC = null;
+    for (let c = 0; c <= 1000; c++) {
+      if (bestC !== null && Math.abs(c - cur) >= Math.abs(bestC - cur)) { if (c > cur) break; else continue; }
+      const D2 = Object.assign({}, D, { g: c / 10000 });
+      const b = bestOf(lines(D2, views), D.P);
+      if (b.k === D.cur && b.rev > 0) bestC = c;
+    }
+    if (bestC === null || bestC === cur) return null;
+    const s = Object.assign({}, base, { convStep: String(bestC / 100) });
+    return isBest(s, D.cur) ? { value: s.convStep, apply: s } : null;
+  }
+  function suggestions(inp, R) {
+    const D = R.D, out = [];
+    if (R.verdict === 'zero' || R.verdict === 'same') return out;
+    const base = sameInput(inp);
+    const mv = Object.assign({}, base, { current: String(R.best.k > D.N ? 0 : R.best.k) });
+    const R2 = calculate(mv);
+    out.push({ id: 'move', text: (R.best.k > D.N ? '改成全部免费' : '改成从第 ' + R.best.k + ' 集开始收费') + '：多 ' + fmt(R.best.rev - R.cur.rev) + ' 元 → 代回后「' + R2.stamp + '」', apply: mv });
+    if (D.cur <= D.N) {
+      const p = priceFor(inp, R);
+      if (p) out.push({ id: 'price', text: '还想从第 ' + D.cur + ' 集收：解锁价改成 ' + p.value + ' 元（现在 ' + base.price + ' 元），这集就成了最好的位置 → 代回后「' + calculate(p.apply).stamp + '」', apply: p.apply, value: p.value });
+      const c = convFor(inp, R);
+      if (c) out.push({ id: 'conv', text: '还想从第 ' + D.cur + ' 集收：得是每多看一集付费率涨 ' + c.value + ' 个百分点（现在 ' + base.convStep + '），这集才是最好的位置 → 代回后「' + calculate(c.apply).stamp + '」', apply: c.apply, value: c.value });
+    }
+    return out;
+  }
+
+  function csvCell(v) { const s = String(v); return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; }
+  const r2 = (x) => (Math.round(x * 100) / 100).toFixed(2);
+  function toCSV(R, when) {
+    const D = R.D, L = [];
+    L.push(['从哪集开始收费', D.name, when].map(csvCell).join(','));
+    L.push(['总集数', D.N, '第1集人数', D.V, '开头集数', D.m, '开头每集流失(%)', D.aPct, '之后每集流失(%)', D.bPct, '每千次观看广告(元)', D.cpm, '解锁价(元)', D.P, '起始付费率(%)', D.c0Pct, '每集增加(百分点)', D.gPct, '付费率上限(%)', D.capPct, '打算从第几集(0=全免)', D.k0].join(','));
+    L.push(['结论', R.stamp, R.summary].map(csvCell).join(','));
+    L.push('');
+    L.push(['从第几集收费', '走到这集的人', '付费率(%)', '付费人数', '前面广告(元)', '付费收入(元)', '合计(元)', '比最好少(%)'].join(','));
+    R.rows.forEach((r) => L.push([r.k > D.N ? '全部免费' : r.k, r2(r.reach), (Math.round(r.conv * 10000) / 100).toFixed(2), r2(r.payers), r2(r.ad), r2(r.pay), r2(r.rev), (Math.round(r.gap * 1000) / 10).toFixed(1)].map(csvCell).join(',')));
+    L.push('');
+    R.facts.forEach((f) => L.push(['', f].map(csvCell).join(',')));
+    L.push(['', '人数按期望值推演；流失率、付费率都是你自己的估计，不是平台数据；默认数据为虚构示例。'].map(csvCell).join(','));
+    return L.join('\n') + '\n';
+  }
+  function toMD(R, when, sg) {
+    const D = R.D, L = [];
+    L.push('# 从哪集开始收费' + (D.name ? '：' + D.name : ''), '', '生成时间：' + when + '　结论：**' + R.stamp + '**', '', '> ' + R.summary, '');
+    R.facts.forEach((f) => L.push('- ' + f));
+    L.push('', '## 条件', '', '共 ' + D.N + ' 集，第 1 集 ' + fmt(D.V) + ' 人；前 ' + D.m + ' 集每集流失 ' + D.aPct + '%，之后 ' + D.bPct + '%；每千次观看广告 ' + D.cpm + ' 元；解锁价 ' + D.P + ' 元；付费率起始 ' + D.c0Pct + '%、每多看一集 +' + D.gPct + ' 个百分点、上限 ' + D.capPct + '%；打算' + epName(D, D.cur) + (D.cur > D.N ? '' : '开始收费') + '。');
+    L.push('', '## 每个收费位置', '', '| 从哪集收 | 走到这集 | 付费率 | 付费人数 | 广告 | 付费 | 合计 |', '|---|---|---|---|---|---|---|');
+    R.rows.forEach((r) => L.push('| ' + (r.k > D.N ? '全部免费' : r.k) + (r.k === R.best.k ? ' ★' : '') + (r.k === R.cur.k ? ' ←' : '') + ' | ' + people(r.reach) + ' | ' + pct(r.conv, 2) + '% | ' + people(r.payers) + ' | ' + fmt(r.ad) + ' | ' + fmt(r.pay) + ' | ' + fmt(r.rev) + ' |'));
+    if (sg && sg.length) { L.push('', '## 改一样试试', ''); sg.forEach((s) => L.push('- ' + s.text)); }
+    L.push('', '★ 收入最高，← 你打算的位置。人数按期望值推演；流失率和付费率是你自己的估计，不是平台规则或真实观众数据。默认数据为虚构示例。');
+    return L.join('\n') + '\n';
+  }
+
+  const DEFAULT = { name: '一部 60 集的短剧', episodes: '60', viewers: '100000', earlyN: '5', earlyDrop: '12', lateDrop: '3', cpm: '6', price: '9.9', conv0: '2', convStep: '0.3', convCap: '15', current: '10' };
+  const PRESETS = [
+    ['默认：60 集短剧', DEFAULT],
+    ['网文连载（章节多、走得慢）', { name: '一本 200 章的网文', episodes: '200', viewers: '20000', earlyN: '10', earlyDrop: '6', lateDrop: '0.8', cpm: '2', price: '19.9', conv0: '1', convStep: '0.1', convCap: '12', current: '20' }],
+    ['系列课（没有广告）', { name: '12 节剪辑入门课', episodes: '12', viewers: '3000', earlyN: '2', earlyDrop: '25', lateDrop: '8', cpm: '0', price: '49', conv0: '3', convStep: '1.5', convCap: '12', current: '3' }],
+    ['广告挣得多', Object.assign({}, DEFAULT, { name: '广告单价高的短剧', cpm: '60' })],
+  ];
+  const api = { near, DEFAULT, PRESETS, KEYS, MAX_NAME, NEAR, STAMP, parse, convAt, viewsOf, lines, bestOf, calculate, priceRange, priceFor, convFor, suggestions, toCSV, toMD, fmt, people, pct, money, epName };
+  if (typeof module === 'object' && module.exports) module.exports = api; else root.AppCore = api;
+})(typeof window !== 'undefined' ? window : globalThis);
+
+  </script>
+  <script>
+/* 从哪集开始收费 · 界面层 */
+(function () {
+  'use strict';
+  const C = window.AppCore;
+  const KEY = 'paywall-episode:v1';
+  const NAME = '从哪集开始收费';
+  const copy = (o) => JSON.parse(JSON.stringify(o));
+  const DEFAULT = C.DEFAULT, PRESETS = C.PRESETS, KEYS = C.KEYS;
+  const $ = (id) => document.getElementById(id);
+  const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const FF = '"PingFang SC","Microsoft YaHei",sans-serif';
+  const COL = { same: '#2f7a4f', near: '#2f7a4f', earlier: '#8a3b2a', later: '#8a3b2a', free: '#8a3b2a', zero: '#8a7d73' };
+  const fmt = C.fmt, people = C.people, pct = C.pct;
+  let state = copy(DEFAULT);
+  let last = null, pickK = 1;
+
+  function save() { try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) { /* 隐私模式忽略 */ } }
+  function load() {
+    try {
+      const o = JSON.parse(localStorage.getItem(KEY) || 'null');
+      if (!o || typeof o !== 'object' || Array.isArray(o)) return null;
+      const s = {};
+      for (const k of KEYS) { if (o[k] == null || typeof o[k] === 'object') return null; s[k] = String(o[k]).slice(0, 40); }
+      return s;
+    } catch (e) { return null; }
+  }
+  function fill() { KEYS.forEach((k) => { $(k).value = state[k]; }); }
+  const lab = (D, k) => (k > D.N ? '全免' : String(k));
+
+  function bigText(R) {
+    if (R.verdict === 'zero') return '收入都是 <b>0</b> 元';
+    if (R.best.k > R.D.N) return '<b>全部免费</b>最划算';
+    return '从第 <b>' + R.best.k + '</b> 集开始收最划算';
+  }
+  const plain = (h) => h.replace(/<[^>]+>/g, '');
+
+  /* ── 图：每个收费起点的收入柱（广告 + 付费堆叠）+ 还在看的人数线 ── */
+  function niceStep(x) { if (!(x > 0)) return 1; const p = Math.pow(10, Math.floor(Math.log10(x))), m = x / p; return (m <= 1 ? 1 : m <= 2 ? 2 : m <= 2.5 ? 2.5 : m <= 5 ? 5 : 10) * p; }
+  function drawChart(g, R, W, H, pad0, fs, sel) {
+    const D = R.D, rows = R.rows, n = rows.length;
+    g.font = fs + 'px ' + FF;
+    const rTop = Math.max(1, ...rows.map((r) => r.rev)), rStep = niceStep(rTop / 4), maxR = Math.ceil(rTop * 1.04 / rStep) * rStep;
+    const vTop = Math.max(1, D.V), vStep = niceStep(vTop / 4), maxV = Math.ceil(vTop / vStep) * vStep;
+    const wl = g.measureText(fmt(maxR)).width, wr = g.measureText(fmt(maxV)).width;
+    const x0 = Math.ceil(wl + 10), x1 = W - Math.ceil(wr + 10), y0 = pad0.t + fs + 8, y1 = H - pad0.b, bw = (x1 - x0) / n;
+    const yR = (v) => y1 - (v / maxR) * (y1 - y0), yV = (v) => y1 - (v / maxV) * (y1 - y0), xc = (i) => x0 + bw * (i + 0.5);
+    g.fillStyle = '#fffdf9'; g.fillRect(0, 0, W, H);
+    g.textBaseline = 'middle'; g.strokeStyle = '#efe6db'; g.lineWidth = 1; g.fillStyle = '#8a7d73'; g.textAlign = 'right';
+    for (let v = 0; v <= maxR + 1e-9; v += rStep) { const y = yR(v); g.beginPath(); g.moveTo(x0, y); g.lineTo(x1, y); g.stroke(); g.fillText(fmt(v), x0 - 6, y); }
+    g.textAlign = 'left'; g.fillText('总收入（元）', 2, y0 - fs - 2);
+    g.textAlign = 'right'; g.fillStyle = '#2a2320'; g.fillText('还在看的人', W - 2, y0 - fs - 2);
+    g.textAlign = 'left';
+    for (let v = 0; v <= maxV + 1e-9; v += vStep) g.fillText(fmt(v), x1 + 6, yV(v));
+    const gap = Math.min(3, bw * 0.2);
+    rows.forEach((r, i) => {
+      const x = x0 + bw * i + gap / 2, w = Math.max(1, bw - gap), ya = yR(r.ad), yt = yR(r.rev);
+      const isB = r.k === R.best.k;
+      g.fillStyle = isB ? '#9fd0b0' : '#e7c39a'; g.fillRect(x, ya, w, y1 - ya);
+      g.fillStyle = isB ? '#2f7a4f' : (r.k > D.N ? '#b9aa9c' : '#8a3b2a'); g.fillRect(x, yt, w, ya - yt);
+      if (r.k === R.cur.k) { g.fillStyle = '#d9a227'; g.fillRect(x - 1, y1 + 1, w + 2, 6); g.beginPath(); g.moveTo(x + w / 2, yt - 3); g.lineTo(x + w / 2 - 5, yt - 11); g.lineTo(x + w / 2 + 5, yt - 11); g.closePath(); g.fill(); }
+      if (sel === r.k) { g.strokeStyle = '#2a2320'; g.lineWidth = 2; g.strokeRect(x - 1, yt - 1, w + 2, y1 - yt + 2); }
+    });
+    /* 还在看的人（第 k 集观看人数；全免那格不画） */
+    g.strokeStyle = '#2a2320'; g.lineWidth = 2; g.beginPath();
+    for (let i = 0; i < D.N; i++) { const x = xc(i), y = yV(R.views[i + 1]); if (i) g.lineTo(x, y); else g.moveTo(x, y); }
+    g.stroke();
+    /* 最高处标注 */
+    const bi = R.best.k - 1, bt = '最高 ' + fmt(R.best.rev), btw = g.measureText(bt).width;
+    let bx = Math.max(x0, Math.min(x1 - btw - 8, xc(bi) - btw / 2 - 4)), by = Math.max(y0, yR(R.best.rev) - fs - 8);
+    g.fillStyle = 'rgba(255,253,249,0.92)'; g.fillRect(bx, by, btw + 8, fs + 4);
+    g.fillStyle = '#2f7a4f'; g.textBaseline = 'top'; g.fillText(bt, bx + 4, by + 2);
+    /* x 轴 */
+    g.fillStyle = '#8a7d73'; g.textAlign = 'center'; g.textBaseline = 'top';
+    const stepX = Math.max(1, Math.ceil(n / Math.max(2, Math.floor((x1 - x0) / (fs * 3.4)))));
+    rows.forEach((r, i) => {
+      const show = r.k === 1 || r.k === n || (r.k % stepX === 0 && n - r.k >= stepX * 0.6);
+      if (show) g.fillText(lab(D, r.k), xc(i), y1 + 8);
+    });
+    g.textAlign = 'right'; g.fillText('从第几集开始收', x1, y1 + 8 + fs * 1.4);
+    g.textAlign = 'left'; g.textBaseline = 'alphabetic';
+    return { n, x0, x1, bw };
+  }
+  let geom = null;
+  function renderChart(R) {
+    const cv = $('chart'), dpr = window.devicePixelRatio || 1, W = cv.clientWidth, H = cv.clientHeight;
+    cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr);
+    const g = cv.getContext('2d'); g.setTransform(dpr, 0, 0, dpr, 0, 0);
+    geom = drawChart(g, R, W, H, { t: 6, b: 40 }, W < 500 ? 10 : 12, pickK);
+  }
+  function pickLine(R, k) {
+    const D = R.D, r = R.rows[k - 1];
+    if (k > D.N) return '全部免费：' + D.N + ' 集都看广告，收入 ' + fmt(r.rev) + ' 元' + (r.k === R.best.k ? '（最高）' : '，比最高少 ' + fmt(R.best.rev - r.rev) + ' 元') + '。';
+    return '从第 ' + k + ' 集收：前 ' + (k - 1) + ' 集广告 ' + fmt(r.ad) + ' 元；走到第 ' + k + ' 集的 ' + people(r.reach) + ' 人里 ' + pct(r.conv, 2) + '% 付费，' + people(r.payers) + ' 人 × ' + C.money(D.P) + ' 元 = ' + fmt(r.pay) + ' 元；合计 ' + fmt(r.rev) + ' 元' + (r.k === R.best.k ? '（最高）' : '，比最高少 ' + fmt(R.best.rev - r.rev) + ' 元') + '。';
+  }
+  function renderPick(R) {
+    if (pickK > R.rows.length) pickK = R.rows.length;
+    $('pickCard').textContent = pickLine(R, pickK);
+    [].forEach.call(document.querySelectorAll('#tbl tr.pk'), (x) => x.classList.remove('pk'));
+    const tr = document.querySelector('#tbl tr[data-k="' + pickK + '"]'); if (tr) tr.classList.add('pk');
+  }
+  function renderTable(R) {
+    const D = R.D, top = Math.max(1, R.best.rev);
+    $('tbl').innerHTML = '<tr><th>从第几集收</th><th>走到这集</th><th>付费率</th><th class="hide-s">付费人数</th><th class="hide-s">广告</th><th class="hide-s">付费</th><th>合计</th><th class="hide-s bar"></th></tr>' +
+      R.rows.map((r) => '<tr data-k="' + r.k + '" class="' + (r.k === R.best.k ? 'best' : '') + (r.k === R.cur.k ? ' cur' : '') + '"><td>' + (r.k > D.N ? '全部免费' : r.k) + '</td><td>' + (r.k > D.N ? '—' : people(r.reach)) + '</td><td>' + (r.k > D.N ? '—' : pct(r.conv, 2) + '%') + '</td><td class="hide-s">' + people(r.payers) + '</td><td class="hide-s">' + fmt(r.ad) + '</td><td class="hide-s">' + fmt(r.pay) + '</td><td>' + fmt(r.rev) + '</td><td class="hide-s bar"><i style="width:' + Math.max(0, Math.round(r.rev / top * 100)) + '%"></i></td></tr>').join('');
+  }
+  function sugList(sg) {
+    $('sugCard').style.display = sg.length ? '' : 'none';
+    $('sugs').innerHTML = sg.map((s, k) => '<div class="sug"><span>' + esc(s.text) + '</span><button class="ghost" data-sug="' + s.id + '" data-k="' + k + '">代回</button></div>').join('');
+    [].forEach.call($('sugs').querySelectorAll('button'), (b) => b.addEventListener('click', () => { state = copy(sg[+b.dataset.k].apply); fill(); run(); }));
+  }
+
+  function run() {
+    KEYS.forEach((k) => $(k).classList.remove('bad'));
+    $('error').style.display = 'none';
+    try {
+      const R = C.calculate(state);
+      const sg = C.suggestions(state, R);
+      $('out').style.display = '';
+      $('stamp').textContent = R.stamp; $('stamp').className = 'stamp ' + R.verdict;
+      $('big').innerHTML = bigText(R);
+      $('sumTxt').textContent = R.summary;
+      $('facts').innerHTML = R.facts.map((f) => '<li>' + esc(f) + '</li>').join('');
+      last = { r: R, sg };
+      pickK = R.best.k;
+      renderTable(R); renderChart(R); renderPick(R); sugList(sg);
+    } catch (e) {
+      last = null;
+      if (e.field) { const el = $(e.field); if (el) el.classList.add('bad'); }
+      $('error').textContent = '算不了：' + e.message; $('error').style.display = 'block';
+      $('out').style.display = 'none';
+    }
+    save();
+  }
+
+  /* ── 导出 ── */
+  function stamp() { const d = new Date(), z = (n) => String(n).padStart(2, '0'); return d.getFullYear() + '-' + z(d.getMonth() + 1) + '-' + z(d.getDate()) + ' ' + z(d.getHours()) + ':' + z(d.getMinutes()); }
+  function download(name, blob) { const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000); }
+  function fit(g, t, w) { let s = String(t); if (g.measureText(s).width <= w) return s; while (s.length > 1 && g.measureText(s + '…').width > w) s = s.slice(0, -1); return s + '…'; }
+  function wrap(g, t, w) {
+    const NOHEAD = '，。、；：！？）」』”%·→｜';
+    const out = []; let line = [];
+    const toks = String(t).match(/[−-]?[0-9][0-9.,]*(\s?(集|元|人|%))?|[A-Za-z_][A-Za-z0-9_.\-]*|[\s\S]/g) || [];
+    const width = (a) => g.measureText(a.join('')).width;
+    for (const tk of toks) {
+      if (line.length && width(line.concat([tk])) > w) {
+        let carry = [tk];
+        while (line.length > 1 && (NOHEAD.indexOf(carry[0][0]) >= 0 || '（「『“'.indexOf(line[line.length - 1]) >= 0)) carry.unshift(line.pop());
+        out.push(line.join(''));
+        line = carry; if (/^\s+$/.test(line[0])) line.shift();
+      } else line.push(tk);
+    }
+    if (line.length) out.push(line.join('')); return out;
+  }
+  function drawPNG(Lx) {
+    const R = Lx.r, D = R.D;
+    const Wd = 1080, H = 1350, X = 64, TW = 952;
+    const cv = document.createElement('canvas'); cv.width = Wd; cv.height = H;
+    const g = cv.getContext('2d');
+    g.fillStyle = '#f3efe8'; g.fillRect(0, 0, Wd, H);
+    g.fillStyle = '#fffdf9'; g.fillRect(32, 32, Wd - 64, H - 64);
+    g.fillStyle = '#8a3b2a'; g.fillRect(32, 32, Wd - 64, 10);
+    g.fillStyle = '#6a5d55'; g.font = '22px ' + FF;
+    g.fillText(fit(g, NAME + (D.name ? ' · ' + D.name : '') + ' · 共 ' + D.N + ' 集', TW - 300), X, 92);
+    g.fillStyle = '#2a2320';
+    let hs = 40; g.font = 'bold ' + hs + 'px ' + FF;
+    const big = plain(bigText(R));
+    while (hs > 26 && g.measureText(big).width > TW - 300) { hs -= 2; g.font = 'bold ' + hs + 'px ' + FF; }
+    g.fillText(fit(g, big, TW - 300), X, 156);
+    g.save(); g.translate(X + TW - 130, 128); g.rotate(-0.06);
+    g.strokeStyle = g.fillStyle = COL[R.verdict]; g.lineWidth = 4;
+    g.font = 'bold 26px ' + FF; const sw = Math.max(170, g.measureText(R.stamp).width + 36);
+    g.strokeRect(-sw / 2, -32, sw, 56); g.textAlign = 'center'; g.fillText(R.stamp, 0, 5); g.restore();
+    let y = 214;
+    g.fillStyle = '#2a2320'; g.font = 'bold 24px ' + FF;
+    wrap(g, R.summary, TW).slice(0, 3).forEach((l) => { g.fillText(l, X, y); y += 34; });
+    y += 4;
+    g.font = '18px ' + FF; g.fillStyle = '#6a5d55';
+    wrap(g, '条件：第 1 集 ' + fmt(D.V) + ' 人 · 前 ' + D.m + ' 集每集走 ' + D.aPct + '%、之后 ' + D.bPct + '% · 广告每千次 ' + D.cpm + ' 元 · 解锁 ' + D.P + ' 元 · 付费率 ' + D.c0Pct + '% 起、每集 +' + D.gPct + '、最多 ' + D.capPct + '%', TW).slice(0, 2).forEach((l) => { g.fillText(l, X, y); y += 27; });
+    y += 8;
+    g.font = '19px ' + FF;
+    for (const f of R.facts) { const ls = wrap(g, '· ' + f, TW); if (y + ls.length * 27 > 700) break; ls.forEach((l) => { g.fillText(l, X, y); y += 27; }); y += 2; }
+    y += 12;
+    const sgH = Lx.sg.reduce((a, sgi) => a + wrap(g, '· 改一样：' + sgi.text, TW).length * 27 + 3, 0);
+    const chH = Math.max(300, Math.min(480, H - 140 - Math.min(sgH, 200) - y - 40));
+    g.save(); g.translate(X - 8, y);
+    drawChart(g, R, TW + 16, chH, { t: 6, b: 48 }, 16, 0);
+    g.restore();
+    y += chH + 8;
+    g.font = '16px ' + FF; let lx = X;
+    [['#e7c39a', '前面免费集的广告'], ['#8a3b2a', '付费解锁'], ['#2f7a4f', '收入最高'], ['#d9a227', '你打算的那集'], ['#2a2320', '还在看的人（右轴）']].forEach(([c, t]) => { g.fillStyle = c; g.fillRect(lx, y - 12, 14, 14); g.fillStyle = '#6a5d55'; g.fillText(t, lx + 20, y); lx += g.measureText(t).width + 40; });
+    y += 34;
+    g.font = '19px ' + FF; g.fillStyle = '#2a2320';
+    for (const sgi of Lx.sg) {
+      const ls = wrap(g, '· 改一样：' + sgi.text, TW);
+      if (y + ls.length * 27 > H - 104) break;
+      ls.forEach((l) => { g.fillText(l, X, y); y += 27; }); y += 3;
+    }
+    g.fillStyle = '#8a7d73'; g.font = '18px ' + FF;
+    ['流失率和付费率是使用者自己的估计，不是平台数据；人数按期望值推演。', '默认数据为虚构示例。'].forEach((l, i) => g.fillText(l, X, H - 76 + i * 27));
+    return Promise.resolve(cv);
+  }
+  function backup() {
+    const R = last.r, D = R.D;
+    return { app: NAME, version: 1, savedAt: stamp(), input: copy(state), result: { verdict: R.verdict, stamp: R.stamp, summary: R.summary,
+      bestEpisode: R.best.k > D.N ? 'all-free' : R.best.k, bestRevenue: Math.round(R.best.rev * 100) / 100,
+      currentEpisode: R.cur.k > D.N ? 'all-free' : R.cur.k, currentRevenue: Math.round(R.cur.rev * 100) / 100,
+      positions: R.rows.map((r) => ({ from: r.k > D.N ? 'all-free' : r.k, reach: Math.round(r.reach * 10) / 10, conv: Math.round(r.conv * 10000) / 10000, ad: Math.round(r.ad * 100) / 100, pay: Math.round(r.pay * 100) / 100, total: Math.round(r.rev * 100) / 100 })) } };
+  }
+  function idxAt(e) { const rc = $('chart').getBoundingClientRect(); return Math.floor((e.clientX - rc.left - geom.x0) / geom.bw); }
+  function init() {
+    let dt = null;
+    KEYS.forEach((k) => { const el = $(k); el.addEventListener('input', () => { state[k] = el.value; save(); clearTimeout(dt); dt = setTimeout(run, 150); }); });
+    PRESETS.forEach((p) => {
+      const b = document.createElement('button'); b.className = 'ghost'; b.textContent = p[0];
+      b.addEventListener('click', () => { state = copy(p[1]); fill(); run(); });
+      $('presets').appendChild(b);
+    });
+    $('reset').addEventListener('click', () => { state = copy(DEFAULT); fill(); run(); });
+    const cv = $('chart'), tip = $('tip');
+    cv.addEventListener('mousemove', (e) => {
+      if (!last || !geom) return;
+      const i = idxAt(e), rc = cv.getBoundingClientRect();
+      if (i < 0 || i >= geom.n) { tip.style.display = 'none'; return; }
+      const r = last.r.rows[i];
+      tip.textContent = (r.k > last.r.D.N ? '全部免费' : '从第 ' + r.k + ' 集收') + ' · ' + fmt(r.rev) + ' 元';
+      tip.style.display = 'block';
+      tip.style.left = Math.max(0, Math.min(rc.width - tip.offsetWidth, e.clientX - rc.left - tip.offsetWidth / 2)) + 'px'; tip.style.top = '0px';
+    });
+    cv.addEventListener('mouseleave', () => { tip.style.display = 'none'; });
+    cv.addEventListener('click', (e) => { if (!last || !geom) return; const i = idxAt(e); if (i >= 0 && i < geom.n) { pickK = i + 1; renderChart(last.r); renderPick(last.r); } });
+    $('tbl').addEventListener('click', (e) => { const tr = e.target.closest('tr[data-k]'); if (!tr || !last) return; pickK = +tr.dataset.k; renderChart(last.r); renderPick(last.r); });
+    $('dlCSV').addEventListener('click', () => { if (last) download(NAME + '.csv', new Blob(['\ufeff' + C.toCSV(last.r, stamp())], { type: 'text/csv;charset=utf-8' })); });
+    $('dlMD').addEventListener('click', () => { if (last) download(NAME + '.md', new Blob([C.toMD(last.r, stamp(), last.sg)], { type: 'text/markdown;charset=utf-8' })); });
+    $('dlJSON').addEventListener('click', () => { if (last) download(NAME + '-备份.json', new Blob([JSON.stringify(backup(), null, 2)], { type: 'application/json' })); });
+    $('dlPNG').addEventListener('click', () => { if (last) drawPNG(last).then((cv2) => cv2.toBlob((b) => download(NAME + '-1080x1350.png', b), 'image/png')); });
+    let rt = null; window.addEventListener('resize', () => { clearTimeout(rt); rt = setTimeout(() => { if (last) renderChart(last.r); }, 150); });
+    state = load() || copy(DEFAULT);
+    fill(); run();
+    window.__ex = { last: () => last, state: () => state, presets: PRESETS, DEFAULT, drawPNG, backup, bigPlain: () => plain(bigText(last.r)), pickLine: (k) => pickLine(last.r, k), pickK: () => pickK };
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init); else init();
+})();
+
+  </script>
+</body>
+</html>
